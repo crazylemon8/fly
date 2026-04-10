@@ -1,14 +1,16 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 public class PlayerController : MonoBehaviour
 {
-    public float speed = 5f;
-    public float jumpForce = 5f;
+    [Header("Movement")]
+    public float horizontalSpeed = 5f;
+    public float flySpeed = 5f;
 
     private Rigidbody rb;
-    private bool isGrounded;
-    private float moveInput;
+    private float horizontalInput;
+    private float altitudeInput;
 
     private void Start()
     {
@@ -17,47 +19,74 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        ReadMovementInput();
-
-        if (Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
-        {
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-        }
+        ReadKeyboardInput();
+        ReadTouchInput();
     }
 
     private void FixedUpdate()
     {
-        rb.linearVelocity = new Vector3(moveInput * speed, rb.linearVelocity.y, 0f);
+        rb.linearVelocity = new Vector3(
+            horizontalInput * horizontalSpeed,
+            altitudeInput * flySpeed,
+            0f
+        );
     }
 
-    private void ReadMovementInput()
+    private void ReadKeyboardInput()
     {
-        moveInput = 0f;
+        horizontalInput = 0f;
+        altitudeInput = 0f;
+
+        if (Keyboard.current == null)
+        {
+            return;
+        }
 
         if (Keyboard.current.leftArrowKey.isPressed || Keyboard.current.aKey.isPressed)
         {
-            moveInput = -1f;
+            horizontalInput = -1f;
         }
 
         if (Keyboard.current.rightArrowKey.isPressed || Keyboard.current.dKey.isPressed)
         {
-            moveInput = 1f;
+            horizontalInput = 1f;
+        }
+
+        if (Keyboard.current.downArrowKey.isPressed || Keyboard.current.sKey.isPressed)
+        {
+            altitudeInput = -1f;
+        }
+
+        if (Keyboard.current.upArrowKey.isPressed || Keyboard.current.wKey.isPressed || Keyboard.current.spaceKey.isPressed)
+        {
+            altitudeInput = 1f;
         }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    private void ReadTouchInput()
     {
-        if (collision.gameObject.CompareTag("Ground"))
+        if (Touchscreen.current == null)
         {
-            isGrounded = true;
+            return;
         }
-    }
 
-    private void OnCollisionExit(Collision collision)
-    {
-        if (collision.gameObject.CompareTag("Ground"))
+        foreach (TouchControl touch in Touchscreen.current.touches)
         {
-            isGrounded = false;
+            if (!touch.press.isPressed)
+            {
+                continue;
+            }
+
+            Vector2 position = touch.position.ReadValue();
+
+            if (position.x < Screen.width * 0.5f)
+            {
+                horizontalInput = position.x < Screen.width * 0.25f ? -1f : 1f;
+                continue;
+            }
+
+            float normalizedY = position.y / Screen.height;
+            altitudeInput = Mathf.Clamp((normalizedY - 0.5f) * 2f, -1f, 1f);
         }
     }
 }
